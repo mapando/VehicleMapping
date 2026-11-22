@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VehicleMapping</string>
+    <string name="mode_distance">Ogni N metri</string>
+    <string name="mode_time">Ogni N secondi</string>
+    <string name="interval_hint_distance">Metri tra uno scatto e l\'altro</string>
+    <string name="interval_hint_time">Secondi tra uno scatto e l\'altro</string>
+    <string name="skip_stationary">Non scattare da fermo</string>
+    <string name="start">Avvia</string>
+    <string name="stop">Ferma</string>
+    <string name="status_idle">Fermo. Premi Avvia per iniziare.</string>
+    <string name="status_waiting_gps">In attesa del GPS…</string>
+    <string name="status_running">Foto: %1$d · GPS ±%2$d m · %3$d km/h</string>
+    <string name="status_last_session">Ultima sessione: %1$d foto in %2$s</string>
+    <string name="permissions_needed">Servono i permessi di fotocamera e posizione.</string>
+    <string name="error_camera">Errore fotocamera: %1$s</string>
+    <string name="error_disk">Spazio quasi esaurito: acquisizione fermata.</string>
+    <string name="notif_channel">Acquisizione</string>
+    <string name="notif_title">Acquisizione in corso</string>
+    <string name="notif_text">Foto scattate: %1$d</string>
+    <string name="preview_placeholder">L\'anteprima compare dopo l\'avvio</string>
+</resources>
