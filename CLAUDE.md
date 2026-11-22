@@ -74,3 +74,7 @@ Constraints for each level:
 - MUST flag best practices and explain trade-offs
 - MUST still execute the user's choice if they disagree with a suggestion
 <!-- END AWS Agent Toolkit rules -->
+
+## AWS help level
+
+help_level: MEDIUM (chosen by the user on 2026-11-22)
