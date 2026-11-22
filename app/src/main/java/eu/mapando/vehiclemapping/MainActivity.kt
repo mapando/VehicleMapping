@@ -3,9 +3,13 @@ package eu.mapando.vehiclemapping
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
+import android.text.InputType
+import android.text.format.Formatter
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.RadioGroup
 import android.widget.Spinner
 import android.widget.TextView
@@ -15,9 +19,12 @@ import androidx.camera.view.PreviewView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -32,6 +39,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var shutter: Spinner
     private lateinit var focusInfinity: MaterialSwitch
     private lateinit var startStop: Button
+    private lateinit var uploadStatus: TextView
+    private lateinit var upload: Button
 
     private var settings = Settings()
 
@@ -57,6 +66,19 @@ class MainActivity : AppCompatActivity() {
         shutter = findViewById(R.id.shutter)
         focusInfinity = findViewById(R.id.focusInfinity)
         startStop = findViewById(R.id.startStop)
+        uploadStatus = findViewById(R.id.uploadStatus)
+        upload = findViewById(R.id.upload)
+        findViewById<Button>(R.id.server).setOnClickListener { showServerDialog() }
+        upload.setOnClickListener { onUploadClicked() }
+
+        val store = PhotoStore.get(this)
+        lifecycleScope.launch(Dispatchers.IO) { store.refresh() }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                combine(UploadService.status, store.pending, CaptureState.status) { u, p, c -> Triple(u, p, c) }
+                    .collect { (u, p, c) -> renderUpload(u, p, c.running) }
+            }
+        }
 
         settings = Settings.load(this)
         modeGroup.check(if (settings.mode == TriggerMode.DISTANCE) R.id.modeDistance else R.id.modeTime)
@@ -160,6 +182,88 @@ class MainActivity : AppCompatActivity() {
             s.sessionName != null -> getString(R.string.status_last_session, s.photos, s.sessionName)
             else -> getString(R.string.status_idle)
         }
+    }
+
+    private fun renderUpload(u: UploadStatus, pending: PendingSummary, capturing: Boolean) {
+        upload.text = if (u.running) {
+            getString(R.string.upload_button_running, u.done, u.total)
+        } else {
+            getString(R.string.upload_button, pending.count)
+        }
+        upload.isEnabled = u.running || !capturing
+        uploadStatus.text = u.message
+        uploadStatus.visibility = if (!u.running && u.message != null) View.VISIBLE else View.GONE
+    }
+
+    private fun onUploadClicked() {
+        if (UploadService.status.value.running) {
+            UploadService.stop(this)
+            return
+        }
+        if (!ServerConfig.load(this).isComplete) {
+            showServerDialog()
+            return
+        }
+        val pending = PhotoStore.get(this).pending.value
+        when {
+            pending.count == 0 -> showUploadMessage(getString(R.string.upload_nothing))
+            else -> when (UploadService.networkKind(this)) {
+                NetworkKind.NONE -> showUploadMessage(getString(R.string.upload_no_network))
+                NetworkKind.WIFI -> UploadService.start(this, allowMetered = false)
+                NetworkKind.METERED -> MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.upload_metered_title)
+                    .setMessage(
+                        getString(
+                            R.string.upload_metered_message,
+                            pending.count,
+                            Formatter.formatShortFileSize(this, pending.bytes),
+                        )
+                    )
+                    .setNegativeButton(R.string.cancel, null)
+                    .setPositiveButton(R.string.upload_metered_confirm) { _, _ ->
+                        UploadService.start(this, allowMetered = true)
+                    }
+                    .show()
+            }
+        }
+    }
+
+    private fun showUploadMessage(message: String) {
+        UploadService.status.value = UploadStatus(message = message)
+    }
+
+    private fun showServerDialog() {
+        val config = ServerConfig.load(this)
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        val url = EditText(this).apply {
+            setHint(R.string.server_url)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            setText(config.url)
+        }
+        val token = EditText(this).apply {
+            setHint(R.string.server_token)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText(config.token)
+        }
+        val delete = MaterialSwitch(this).apply {
+            setText(R.string.server_delete_after)
+            isChecked = config.deleteAfterUpload
+        }
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad / 2, pad, 0)
+            addView(url)
+            addView(token)
+            addView(delete)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.server_title)
+            .setView(form)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save) { _, _ ->
+                ServerConfig(url.text.toString(), token.text.toString(), delete.isChecked).save(this)
+            }
+            .show()
     }
 
     private companion object {

@@ -11,8 +11,8 @@ android {
         applicationId = "eu.mapando.vehiclemapping"
         minSdk = 29
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3"
+        versionCode = 4
+        versionName = "0.4"
     }
 
     compileOptions {
@@ -37,6 +37,8 @@ dependencies {
     implementation("androidx.camera:camera-view:$camerax")
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     testImplementation("junit:junit:4.13.2")
 }

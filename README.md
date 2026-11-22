@@ -5,7 +5,8 @@ Le foto serviranno a estrarre targhe, marca, modello e anno dei veicoli e a cost
 
 ## Stato
 
-Fase 1 (questa): scatto, GPS e salvataggio locale. Upload, analisi sul server e mappa arrivano nelle fasi successive.
+- **App** (`app/`): scatto, GPS, salvataggio locale e upload verso il server.
+- **Server** (`server/`): riceve le foto con i dati GPS e le mette in coda. Analisi e mappa arrivano nelle fasi successive.
 
 ## Uso
 
@@ -36,6 +37,30 @@ Documents/VehicleMapping/<aaaammgg_hhmmss>/index.csv       (una riga per foto: o
 ```
 
 Richiede Android 10 o successivo.
+
+## Upload
+
+1. Premi **Server** e inserisci indirizzo (`https://…`) e token.
+2. Premi **Carica foto (N)**. In Wi-Fi parte subito; su rete a consumo chiede conferma indicando numero e peso delle foto.
+3. Se l'upload è partito in Wi-Fi e il Wi-Fi cade, si mette in pausa invece di passare alla rete dati.
+
+L'upload riprende sempre dalla prima foto non caricata; ricaricare una foto già ricevuta non crea doppioni.
+Vengono caricate solo le foto scattate dalla versione 0.4 in poi.
+
+## Server
+
+Serve una macchina con Docker e le porte 80 e 443 aperte.
+
+```
+cd server
+cp .env.example .env      # imposta VM_API_TOKEN e VM_DOMAIN
+docker compose up -d --build
+```
+
+Caddy ottiene da solo il certificato HTTPS per `VM_DOMAIN`. Verifica con `https://<VM_DOMAIN>/api/health`.
+Le foto ricevute sono in `server/data/inbox/`, il database in `server/data/vehiclemapping.db`.
+
+Test: `pip install -r requirements-dev.txt && python -m pytest`
 
 ## Compilare
 

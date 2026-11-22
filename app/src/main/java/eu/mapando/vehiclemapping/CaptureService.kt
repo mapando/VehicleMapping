@@ -22,6 +22,7 @@ import android.os.PowerManager
 import android.os.StatFs
 import android.os.SystemClock
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.camera.camera2.interop.Camera2CameraControl
@@ -345,6 +346,15 @@ class CaptureService : LifecycleService() {
         capture.takePicture(options, cameraExecutor, object : ImageCapture.OnImageSavedCallback {
             override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                 val row = csvRow(fileName, wallMs, loc)
+                // Recorded for the upload queue; a photo without a URI cannot be uploaded later.
+                output.savedUri?.let { uri ->
+                    val size = runCatching {
+                        contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
+                            if (c.moveToFirst()) c.getLong(0) else 0L
+                        }
+                    }.getOrNull() ?: 0L
+                    PhotoStore.get(this@CaptureService).add(name, fileName, uri, size, wallMs, loc)
+                }
                 ContextCompat.getMainExecutor(this@CaptureService).execute {
                     captureInFlight = false
                     val writer = index ?: return@execute
