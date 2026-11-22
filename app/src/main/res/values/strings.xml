@@ -11,9 +11,10 @@
     <string name="status_idle">Fermo. Premi Avvia per iniziare.</string>
     <string name="status_waiting_gps">In attesa del GPS…</string>
     <string name="status_running">Foto: %1$d · GPS ±%2$d m · %3$d km/h</string>
-    <string name="status_last_session">Ultima sessione: %1$d foto in %2$s</string>
+    <string name="status_last_session">Ultima sessione: %1$d foto in Pictures/VehicleMapping/%2$s</string>
     <string name="permissions_needed">Servono i permessi di fotocamera e posizione.</string>
     <string name="error_camera">Errore fotocamera: %1$s</string>
+    <string name="error_storage">Impossibile salvare: %1$s</string>
     <string name="error_disk">Spazio quasi esaurito: acquisizione fermata.</string>
     <string name="notif_channel">Acquisizione</string>
     <string name="notif_title">Acquisizione in corso</string>

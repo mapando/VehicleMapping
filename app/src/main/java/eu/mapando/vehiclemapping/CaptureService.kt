@@ -6,15 +6,19 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.location.Location
 import android.os.Build
+import android.os.Environment
 import android.os.Looper
 import android.os.PowerManager
+import android.os.StatFs
 import android.os.SystemClock
+import android.provider.MediaStore
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -38,8 +42,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileWriter
+import java.io.Writer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -51,8 +54,9 @@ import java.util.concurrent.Executors
  * Foreground service that owns the camera and the GPS while a capture session runs,
  * so it keeps shooting with the screen off.
  *
- * Each session writes to `<app external files>/captures/<session>/`:
- * JPEG files (with GPS EXIF) and an `index.csv` with one row per photo.
+ * Each session writes to shared storage, where file managers and the gallery can see it:
+ * JPEG files (with GPS EXIF) in `Pictures/VehicleMapping/<session>/` and an `index.csv`
+ * with one row per photo in `Documents/VehicleMapping/<session>/`.
  */
 class CaptureService : LifecycleService() {
 
@@ -63,8 +67,8 @@ class CaptureService : LifecycleService() {
     private var started = false
     private var imageCapture: ImageCapture? = null
     private var trigger: CaptureTrigger? = null
-    private var sessionDir: File? = null
-    private var index: FileWriter? = null
+    private var sessionName: String? = null
+    private var index: Writer? = null
 
     // Touched on the main thread only.
     private var lastLocation: Location? = null
@@ -149,11 +153,24 @@ class CaptureService : LifecycleService() {
         )
 
         val name = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val dir = File(getExternalFilesDir(null), "captures/$name").apply { mkdirs() }
-        sessionDir = dir
-        index = FileWriter(File(dir, "index.csv"), true).apply {
-            write("file,time_utc,epoch_ms,lat,lon,accuracy_m,speed_mps,bearing_deg,altitude_m\n")
-            flush()
+        sessionName = name
+        index = try {
+            val uri = contentResolver.insert(
+                MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, "index.csv")
+                    put(MediaStore.MediaColumns.MIME_TYPE, "text/csv")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOCUMENTS}/$FOLDER/$name")
+                },
+            )
+            contentResolver.openOutputStream(uri!!)!!.bufferedWriter().apply {
+                write("file,time_utc,epoch_ms,lat,lon,accuracy_m,speed_mps,bearing_deg,altitude_m\n")
+                flush()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Cannot create index.csv", e)
+            fail(getString(R.string.error_storage, e.message ?: e.javaClass.simpleName))
+            return
         }
         photos = 0
         CaptureState.status.value = CaptureStatus(running = true, sessionName = name)
@@ -211,7 +228,7 @@ class CaptureService : LifecycleService() {
     private fun tick() {
         val capture = imageCapture ?: return
         val trigger = trigger ?: return
-        val dir = sessionDir ?: return
+        val name = sessionName ?: return
         if (captureInFlight) return
 
         val loc = lastLocation
@@ -231,7 +248,7 @@ class CaptureService : LifecycleService() {
             return
         }
 
-        if (dir.usableSpace < MIN_FREE_BYTES) {
+        if (StatFs(Environment.getExternalStorageDirectory().path).availableBytes < MIN_FREE_BYTES) {
             fail(getString(R.string.error_disk))
             return
         }
@@ -240,14 +257,22 @@ class CaptureService : LifecycleService() {
         captureInFlight = true
 
         val wallMs = System.currentTimeMillis()
-        val file = File(dir, "img_%05d.jpg".format(Locale.US, photos + 1))
-        val options = ImageCapture.OutputFileOptions.Builder(file)
+        val fileName = "img_%05d.jpg".format(Locale.US, photos + 1)
+        val options = ImageCapture.OutputFileOptions.Builder(
+            contentResolver,
+            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+            ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/$FOLDER/$name")
+            },
+        )
             .setMetadata(ImageCapture.Metadata().apply { location = loc })
             .build()
 
         capture.takePicture(options, cameraExecutor, object : ImageCapture.OnImageSavedCallback {
             override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                val row = csvRow(file.name, wallMs, loc)
+                val row = csvRow(fileName, wallMs, loc)
                 ContextCompat.getMainExecutor(this@CaptureService).execute {
                     captureInFlight = false
                     val writer = index ?: return@execute
@@ -264,7 +289,6 @@ class CaptureService : LifecycleService() {
 
             override fun onError(e: ImageCaptureException) {
                 Log.w(TAG, "Capture failed", e)
-                file.delete()
                 ContextCompat.getMainExecutor(this@CaptureService).execute { captureInFlight = false }
             }
         })
@@ -294,6 +318,7 @@ class CaptureService : LifecycleService() {
         private const val CHANNEL_ID = "capture"
         private const val NOTIFICATION_ID = 1
         private const val ACTION_STOP = "eu.mapando.vehiclemapping.STOP"
+        private const val FOLDER = "VehicleMapping"
         private const val TICK_MS = 100L
         private const val MIN_FREE_BYTES = 300L * 1024 * 1024
         private const val MAX_SESSION_MS = 12L * 60 * 60 * 1000

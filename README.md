@@ -19,15 +19,14 @@ Non viene scattata nessuna foto finché non c'è una posizione GPS recente.
 
 ## Dove finiscono i dati
 
-Ogni sessione crea una cartella sul telefono:
+Ogni sessione salva nella memoria condivisa del telefono, visibile dal file manager e dalla galleria:
 
 ```
-Android/data/eu.mapando.vehiclemapping/files/captures/<aaaammgg_hhmmss>/
-  img_00001.jpg   (con posizione GPS nell'EXIF)
-  index.csv       (una riga per foto: orario, lat, lon, accuratezza, velocità, direzione, quota)
+Pictures/VehicleMapping/<aaaammgg_hhmmss>/img_00001.jpg    (con posizione GPS nell'EXIF)
+Documents/VehicleMapping/<aaaammgg_hhmmss>/index.csv       (una riga per foto: orario, lat, lon, accuratezza, velocità, direzione, quota)
 ```
 
-Per copiarle sul PC: `adb pull /sdcard/Android/data/eu.mapando.vehiclemapping/files/captures`
+Richiede Android 10 o successivo.
 
 ## Compilare
 
