@@ -5,14 +5,14 @@ plugins {
 
 android {
     namespace = "eu.mapando.vehiclemapping"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "eu.mapando.vehiclemapping"
         minSdk = 29
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2"
+        versionCode = 3
+        versionName = "0.3"
     }
 
     compileOptions {

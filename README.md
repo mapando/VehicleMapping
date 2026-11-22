@@ -17,6 +17,15 @@ Fase 1 (questa): scatto, GPS e salvataggio locale. Upload, analisi sul server e 
 
 Non viene scattata nessuna foto finché non c'è una posizione GPS recente.
 
+## Regolazioni contro il mosso
+
+- **Tempo di esposizione** (Automatico, 1/500, 1/1000, 1/2000; predefinito 1/1000): tempo fisso con ISO automatici.
+  Richiede Android 16 e una fotocamera che supporti la priorità ai tempi; altrimenti l'app ripiega sulla modalità sport,
+  se disponibile. Sotto lo stato l'app indica quale regolazione è stata applicata davvero.
+- **Fuoco fisso all'infinito**: evita che l'autofocus agganci parabrezza o cruscotto.
+
+Tempo di esposizione e ISO effettivi di ogni foto sono nei dati EXIF.
+
 ## Dove finiscono i dati
 
 Ogni sessione salva nella memoria condivisa del telefono, visibile dal file manager e dalla galleria:
@@ -30,7 +39,7 @@ Richiede Android 10 o successivo.
 
 ## Compilare
 
-Serve l'SDK Android (piattaforma 35). Da Android Studio apri la cartella, oppure:
+Serve l'SDK Android (piattaforma 36). Da Android Studio apri la cartella, oppure:
 
 ```
 ./gradlew assembleDebug testDebugUnitTest

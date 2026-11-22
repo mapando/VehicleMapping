@@ -8,6 +8,9 @@ data class Settings(
     val distanceMeters: Int = 15,
     val intervalSeconds: Int = 1,
     val skipWhenStationary: Boolean = true,
+    /** Target shutter speed as 1/N of a second; 0 leaves exposure fully automatic. */
+    val shutterDenominator: Int = 1000,
+    val focusAtInfinity: Boolean = false,
 ) {
     fun save(context: Context) {
         prefs(context).edit()
@@ -15,6 +18,8 @@ data class Settings(
             .putInt("distanceMeters", distanceMeters)
             .putInt("intervalSeconds", intervalSeconds)
             .putBoolean("skipWhenStationary", skipWhenStationary)
+            .putInt("shutterDenominator", shutterDenominator)
+            .putBoolean("focusAtInfinity", focusAtInfinity)
             .apply()
     }
 
@@ -31,6 +36,8 @@ data class Settings(
                 distanceMeters = p.getInt("distanceMeters", d.distanceMeters),
                 intervalSeconds = p.getInt("intervalSeconds", d.intervalSeconds),
                 skipWhenStationary = p.getBoolean("skipWhenStationary", d.skipWhenStationary),
+                shutterDenominator = p.getInt("shutterDenominator", d.shutterDenominator),
+                focusAtInfinity = p.getBoolean("focusAtInfinity", d.focusAtInfinity),
             )
         }
     }
@@ -43,6 +50,8 @@ data class CaptureStatus(
     val accuracyM: Int = 0,
     val speedKmh: Int = 0,
     val sessionName: String? = null,
+    /** What the camera actually accepted of the anti-blur settings. */
+    val cameraNote: String? = null,
     val error: String? = null,
 )
 

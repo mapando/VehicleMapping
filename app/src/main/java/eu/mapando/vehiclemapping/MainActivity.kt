@@ -7,6 +7,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.RadioGroup
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -27,6 +28,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var intervalLayout: TextInputLayout
     private lateinit var interval: TextInputEditText
     private lateinit var skipStationary: MaterialSwitch
+    private lateinit var cameraNote: TextView
+    private lateinit var shutter: Spinner
+    private lateinit var focusInfinity: MaterialSwitch
     private lateinit var startStop: Button
 
     private var settings = Settings()
@@ -49,11 +53,16 @@ class MainActivity : AppCompatActivity() {
         intervalLayout = findViewById(R.id.intervalLayout)
         interval = findViewById(R.id.interval)
         skipStationary = findViewById(R.id.skipStationary)
+        cameraNote = findViewById(R.id.cameraNote)
+        shutter = findViewById(R.id.shutter)
+        focusInfinity = findViewById(R.id.focusInfinity)
         startStop = findViewById(R.id.startStop)
 
         settings = Settings.load(this)
         modeGroup.check(if (settings.mode == TriggerMode.DISTANCE) R.id.modeDistance else R.id.modeTime)
         skipStationary.isChecked = settings.skipWhenStationary
+        shutter.setSelection(SHUTTER_DENOMINATORS.indexOf(settings.shutterDenominator).coerceAtLeast(0))
+        focusInfinity.isChecked = settings.focusAtInfinity
         showModeFields()
 
         modeGroup.setOnCheckedChangeListener { _, _ ->
@@ -115,6 +124,8 @@ class MainActivity : AppCompatActivity() {
             intervalSeconds = if (shownMode == TriggerMode.TIME) typed?.coerceIn(1, 3600)
                 ?: settings.intervalSeconds else settings.intervalSeconds,
             skipWhenStationary = skipStationary.isChecked,
+            shutterDenominator = SHUTTER_DENOMINATORS.getOrElse(shutter.selectedItemPosition) { 0 },
+            focusAtInfinity = focusInfinity.isChecked,
         )
     }
 
@@ -130,7 +141,7 @@ class MainActivity : AppCompatActivity() {
     private fun render(s: CaptureStatus) {
         startStop.setText(if (s.running) R.string.stop else R.string.start)
         preview.visibility = if (s.running) View.VISIBLE else View.INVISIBLE
-        for (v in listOf(modeGroup, interval, skipStationary)) v.isEnabled = !s.running
+        for (v in listOf(modeGroup, interval, skipStationary, shutter, focusInfinity)) v.isEnabled = !s.running
         for (i in 0 until modeGroup.childCount) modeGroup.getChildAt(i).isEnabled = !s.running
 
         if (s.running) {
@@ -139,6 +150,9 @@ class MainActivity : AppCompatActivity() {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
 
+        cameraNote.text = s.cameraNote
+        cameraNote.visibility = if (s.running && s.cameraNote != null) View.VISIBLE else View.GONE
+
         status.text = when {
             s.error != null -> s.error
             s.running && !s.hasFix -> getString(R.string.status_waiting_gps)
@@ -146,5 +160,10 @@ class MainActivity : AppCompatActivity() {
             s.sessionName != null -> getString(R.string.status_last_session, s.photos, s.sessionName)
             else -> getString(R.string.status_idle)
         }
+    }
+
+    private companion object {
+        /** Matches the order of R.array.shutter_options; 0 means automatic. */
+        val SHUTTER_DENOMINATORS = listOf(0, 500, 1000, 2000)
     }
 }

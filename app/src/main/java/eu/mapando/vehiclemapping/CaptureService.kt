@@ -11,6 +11,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraMetadata
+import android.hardware.camera2.CaptureRequest
 import android.location.Location
 import android.os.Build
 import android.os.Environment
@@ -20,6 +23,12 @@ import android.os.StatFs
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
+import androidx.annotation.OptIn
+import androidx.camera.camera2.interop.Camera2CameraControl
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.CaptureRequestOptions
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -216,13 +225,76 @@ class CaptureService : LifecycleService() {
                     this.preview = it
                 }
                 provider.unbindAll()
-                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+                val camera =
+                    provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+                val note = applyAntiBlur(camera, Settings.load(this))
+                CaptureState.status.update { it.copy(cameraNote = note) }
                 imageCapture = capture
             } catch (e: Exception) {
                 Log.e(TAG, "Camera bind failed", e)
                 fail(getString(R.string.error_camera, e.message ?: e.javaClass.simpleName))
             }
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    /**
+     * Applies the anti-blur settings the device supports and returns a line describing the outcome.
+     *
+     * A fixed shutter speed with automatic ISO needs the exposure-time priority mode added in
+     * Android 16. Where it is missing, the sports scene mode is the closest hint the camera accepts.
+     */
+    @OptIn(ExperimentalCamera2Interop::class)
+    private fun applyAntiBlur(camera: Camera, settings: Settings): String? {
+        val info = Camera2CameraInfo.from(camera.cameraInfo)
+        val options = CaptureRequestOptions.Builder()
+        val notes = mutableListOf<String>()
+
+        if (settings.shutterDenominator > 0) {
+            val wantedNs = 1_000_000_000L / settings.shutterDenominator
+            val range = info.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
+            val exposureNs = if (range != null) wantedNs.coerceIn(range.lower, range.upper) else wantedNs
+            val sceneModes =
+                info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AVAILABLE_SCENE_MODES) ?: IntArray(0)
+            val sportsMode = listOf(CameraMetadata.CONTROL_SCENE_MODE_SPORTS, CameraMetadata.CONTROL_SCENE_MODE_ACTION)
+                .firstOrNull { it in sceneModes }
+
+            if (supportsShutterPriority(info)) {
+                options.setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CameraMetadata.CONTROL_AE_MODE_ON)
+                if (Build.VERSION.SDK_INT >= 36) {
+                    options.setCaptureRequestOption(
+                        CaptureRequest.CONTROL_AE_PRIORITY_MODE,
+                        CameraMetadata.CONTROL_AE_PRIORITY_MODE_SENSOR_EXPOSURE_TIME_PRIORITY,
+                    )
+                }
+                options.setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME, exposureNs)
+                notes += getString(R.string.note_shutter_fixed, (1_000_000_000L / exposureNs).toInt())
+            } else if (sportsMode != null) {
+                options.setCaptureRequestOption(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_USE_SCENE_MODE)
+                options.setCaptureRequestOption(CaptureRequest.CONTROL_SCENE_MODE, sportsMode)
+                notes += getString(R.string.note_shutter_sports)
+            } else {
+                notes += getString(R.string.note_shutter_unsupported)
+            }
+        }
+
+        if (settings.focusAtInfinity) {
+            val minFocus = info.getCameraCharacteristic(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE) ?: 0f
+            if (minFocus > 0f) {
+                options.setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_OFF)
+                options.setCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE, 0f)
+                notes += getString(R.string.note_focus_infinity)
+            }
+        }
+
+        Camera2CameraControl.from(camera.cameraControl).setCaptureRequestOptions(options.build())
+        return notes.joinToString(" · ").ifEmpty { null }
+    }
+
+    @OptIn(ExperimentalCamera2Interop::class)
+    private fun supportsShutterPriority(info: Camera2CameraInfo): Boolean {
+        if (Build.VERSION.SDK_INT < 36) return false
+        val modes = info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AE_AVAILABLE_PRIORITY_MODES)
+        return modes?.contains(CameraMetadata.CONTROL_AE_PRIORITY_MODE_SENSOR_EXPOSURE_TIME_PRIORITY) == true
     }
 
     private fun tick() {

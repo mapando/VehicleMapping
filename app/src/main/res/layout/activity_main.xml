@@ -39,6 +39,13 @@
             android:text="@string/status_idle"
             android:textAppearance="?attr/textAppearanceTitleMedium" />
 
+        <TextView
+            android:id="@+id/cameraNote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:visibility="gone" />
+
         <RadioGroup
             android:id="@+id/modeGroup"
             android:layout_width="match_parent"
@@ -80,6 +87,34 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/skip_stationary" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:minHeight="48dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:labelFor="@+id/shutter"
+                android:text="@string/shutter_label"
+                android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+            <Spinner
+                android:id="@+id/shutter"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:entries="@array/shutter_options" />
+        </LinearLayout>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/focusInfinity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/focus_infinity" />
 
         <Button
             android:id="@+id/startStop"

@@ -20,4 +20,16 @@
     <string name="notif_title">Acquisizione in corso</string>
     <string name="notif_text">Foto scattate: %1$d</string>
     <string name="preview_placeholder">L\'anteprima compare dopo l\'avvio</string>
+    <string name="shutter_label">Tempo di esposizione</string>
+    <string-array name="shutter_options">
+        <item>Automatico</item>
+        <item>1/500 s</item>
+        <item>1/1000 s</item>
+        <item>1/2000 s</item>
+    </string-array>
+    <string name="focus_infinity">Fuoco fisso all\'infinito</string>
+    <string name="note_shutter_fixed">Tempo fisso 1/%1$d s</string>
+    <string name="note_shutter_sports">Tempo fisso non supportato: uso la modalità sport</string>
+    <string name="note_shutter_unsupported">Tempo fisso non supportato da questo telefono</string>
+    <string name="note_focus_infinity">Fuoco all\'infinito</string>
 </resources>
